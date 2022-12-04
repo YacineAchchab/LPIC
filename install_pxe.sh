@@ -12,6 +12,8 @@ install_pkgs() {
 configure_tftp() {
     echo "[+]--> Configuring TFTP"
 
+    setenforce 0
+
     sed -i 's/\tdisable\t*= yes/\tdisable\t\t\t= no/g' /etc/xinetd.d/tftp
     cp -v /usr/share/syslinux/{pxelinux.0,menu.c32,memdisk,mboot.c32,chain.c32} /var/lib/tftpboot
     mkdir -vp /var/lib/tftpboot/{pxelinux.cfg,networkboot}
@@ -33,9 +35,14 @@ configure_kickstart() {
     echo "[+]--> Configuring Kickstart"
 
     cp /root/anaconda-ks.cfg /var/ftp/pub/centos7.cfg
-    sed -i '/^graphical$/d' /var/ftp/pub/centos7.cfg
+    sed -i 's/^graphical$/install\ntext/g' /var/ftp/pub/centos7.cfg
     sed -i 's|^cdrom$|url --url="ftp://192.168.130.1/pub/"|g' /var/ftp/pub/centos7.cfg
+    sed -i 's/--encrypted$/--encrypted --passphrase=admin/g' /var/ftp/pub/centos7.cfg
     chmod 644 /var/ftp/pub/centos7.cfg
+
+    if [ -f ./bootstrap_rhel.sh ]; then
+        echo -e "%post --interpreter=/usr/bin/bash" "$(cat ./bootstrap_rhel.sh)" "\n%end" >> /var/ftp/pub/centos7.cfg
+    fi
 }
 
 configure_pxe() {
@@ -81,9 +88,9 @@ main() {
     configure_tftp
     copy_iso_files
     configure_kickstart
-    # configure_pxe
-    # add_firewall_rule
-    # restart_svc
+    configure_pxe
+    #add_firewall_rule
+    restart_svc
 
     echo "[+]--> END"
 }
